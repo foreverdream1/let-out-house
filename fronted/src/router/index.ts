@@ -37,7 +37,8 @@ const routes = [
         path: "profile/agent-test",
         name: "AgentTest",
         component: AgentTestView,
-        meta: { title: "测试 Agent", rail: "profile", fullHeight: true },
+        // hideHeader：页面自带会话列表与工具栏，由自身布局充当标题栏
+        meta: { title: "测试 Agent", rail: "profile", fullHeight: true, hideHeader: true },
       },
       {
         path: "profile/theme",

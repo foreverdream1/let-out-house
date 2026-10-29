@@ -106,42 +106,75 @@
       </div>
     </section>
 
-    <!-- 最近的 Agent -->
-    <section class="m3-card overflow-hidden">
-      <div class="flex items-center justify-between px-5 pt-4">
-        <h2 class="text-sm font-medium text-on-surface-variant">最近的 Agent</h2>
-        <mdui-button variant="text" end-icon="chevron_right" @click="router.push('/profile/agent')">全部</mdui-button>
-      </div>
-      <div v-if="loading" class="space-y-2 p-5">
-        <div v-for="i in 3" :key="i" class="h-14 animate-pulse rounded-2xl bg-surface-container-highest" />
-      </div>
-      <div v-else-if="!recent.length" class="flex flex-col items-center gap-2 px-5 py-10 text-on-surface-variant">
-        <mdui-icon name="smart_toy--outlined" class="text-4xl opacity-60"></mdui-icon>
-        <span class="text-sm">还没有 Agent，先去创建一个吧</span>
-      </div>
-      <mdui-list v-else>
-        <mdui-list-item
-          rounded
-          v-for="a in recent"
-          :key="a.agentId"
-          :headline="a.agentName"
-          :description="a.modelName"
-          @click="router.push('/profile/agent')"
-        >
-          <span
-            slot="icon"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container"
+    <!-- 最近的 Agent / 最近的会话 -->
+    <div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <section class="m3-card overflow-hidden">
+        <div class="flex items-center justify-between px-5 pt-4">
+          <h2 class="text-sm font-medium text-on-surface-variant">最近的 Agent</h2>
+          <mdui-button variant="text" end-icon="chevron_right" @click="router.push('/profile/agent')">全部</mdui-button>
+        </div>
+        <div v-if="loading" class="space-y-2 p-5">
+          <div v-for="i in 3" :key="i" class="h-14 animate-pulse rounded-2xl bg-surface-container-highest" />
+        </div>
+        <div v-else-if="!recent.length" class="flex flex-col items-center gap-2 px-5 py-10 text-on-surface-variant">
+          <mdui-icon name="smart_toy--outlined" class="text-4xl opacity-60"></mdui-icon>
+          <span class="text-sm">还没有 Agent，先去创建一个吧</span>
+        </div>
+        <mdui-list v-else>
+          <mdui-list-item
+            rounded
+            v-for="a in recent"
+            :key="a.agentId"
+            :headline="a.agentName"
+            :description="a.modelName"
+            @click="router.push('/profile/agent')"
           >
-            <mdui-icon :name="a.ragEnable ? 'menu_book--outlined' : 'smart_toy--outlined'"></mdui-icon>
-          </span>
-          <span
-            v-if="a.ragEnable"
-            slot="end-icon"
-            class="rounded-full bg-tertiary-container px-2.5 py-0.5 text-xs text-on-tertiary-container"
-          >RAG</span>
-        </mdui-list-item>
-      </mdui-list>
-    </section>
+            <span
+              slot="icon"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container"
+            >
+              <mdui-icon :name="a.ragEnable ? 'menu_book--outlined' : 'smart_toy--outlined'"></mdui-icon>
+            </span>
+            <span
+              v-if="a.ragEnable"
+              slot="end-icon"
+              class="rounded-full bg-tertiary-container px-2.5 py-0.5 text-xs text-on-tertiary-container"
+            >RAG</span>
+          </mdui-list-item>
+        </mdui-list>
+      </section>
+
+      <section class="m3-card overflow-hidden">
+        <div class="flex items-center justify-between px-5 pt-4">
+          <h2 class="text-sm font-medium text-on-surface-variant">最近的会话</h2>
+          <mdui-button variant="text" end-icon="chevron_right" @click="router.push('/profile/agent-test')">全部</mdui-button>
+        </div>
+        <div v-if="convLoading" class="space-y-2 p-5">
+          <div v-for="i in 3" :key="i" class="h-14 animate-pulse rounded-2xl bg-surface-container-highest" />
+        </div>
+        <div v-else-if="!conversations.length" class="flex flex-col items-center gap-2 px-5 py-10 text-on-surface-variant">
+          <mdui-icon name="forum--outlined" class="text-4xl opacity-60"></mdui-icon>
+          <span class="text-sm">还没有会话，去发起一次对话吧</span>
+        </div>
+        <mdui-list v-else>
+          <mdui-list-item
+            rounded
+            v-for="c in conversations"
+            :key="c.conversationId"
+            :headline="c.title"
+            :description="`${c.messageCount} 条消息 · ${fmtTime(c.lastMessageAt || c.createdAt)}`"
+            @click="router.push('/profile/agent-test')"
+          >
+            <span
+              slot="icon"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary-container text-on-primary-container"
+            >
+              <mdui-icon name="chat_bubble--outlined"></mdui-icon>
+            </span>
+          </mdui-list-item>
+        </mdui-list>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -155,6 +188,7 @@ import RotatingText from "../components/RotatingText.vue";
 import SoftAurora from "../components/SoftAurora.vue";
 import CountUp from "../components/CountUp.vue";
 import { agentApi, type AgentResponse } from "../api/agent";
+import { conversationApi, type ConversationResponse } from "../api/conversation";
 import { useTheme } from "../composables/useTheme";
 
 const router = useRouter();
@@ -173,6 +207,19 @@ const gradient = computed(() => [palette.value.primary, palette.value.tertiary, 
 const loading = ref(true);
 const agents = ref<AgentResponse[]>([]);
 const total = ref(0);
+
+const convLoading = ref(true);
+const conversations = ref<ConversationResponse[]>([]);
+
+const fmtTime = (iso: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const now = new Date();
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+};
 
 const stats = computed(() => [
   {
@@ -228,14 +275,31 @@ const quick = [
 ];
 
 onMounted(async () => {
-  try {
-    const page = await agentApi.list({ pageNum: 1, pageSize: 100 });
-    agents.value = page.list;
-    total.value = page.total;
-  } catch {
-    // 统计失败不打扰用户，显示 0
-  } finally {
-    loading.value = false;
-  }
+  const [agentTask, convTask] = [
+    agentApi
+      .list({ pageNum: 1, pageSize: 100 })
+      .then((page) => {
+        agents.value = page.list;
+        total.value = page.total;
+      })
+      .catch(() => {
+        // 统计失败不打扰用户，显示 0
+      })
+      .finally(() => {
+        loading.value = false;
+      }),
+    conversationApi
+      .list({ pageNum: 1, pageSize: 5 })
+      .then((page) => {
+        conversations.value = page.list;
+      })
+      .catch(() => {
+        // 会话加载失败不影响首页其他区块
+      })
+      .finally(() => {
+        convLoading.value = false;
+      }),
+  ];
+  await Promise.all([agentTask, convTask]);
 });
 </script>

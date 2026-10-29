@@ -38,8 +38,9 @@
       <main
         class="relative flex min-h-0 flex-1 flex-col overflow-hidden md:rounded-[28px] md:bg-surface-container-low md:[--mdui-color-background:var(--mdui-color-surface-container-low)] md:border md:border-outline-variant/30"
       >
-        <!-- 顶栏 -->
+        <!-- 顶栏（页面自带标题栏时隐藏，如对话页） -->
         <header
+          v-if="!hideHeader"
           class="z-10 flex shrink-0 items-center gap-1 px-2 sm:px-4 lg:px-6 pt-[env(safe-area-inset-top)] md:pt-0 h-[calc(4rem+env(safe-area-inset-top))] md:h-16"
         >
           <Transition name="fade-scale">
@@ -137,6 +138,7 @@ const activeRail = computed(() => {
   return "home";
 });
 
+const hideHeader = computed(() => !!route.meta.hideHeader);
 const title = computed(() => (route.meta.title as string) || "Let Out House");
 const showBack = computed(() => route.path.startsWith("/profile/"));
 const fullHeight = computed(() => !!route.meta.fullHeight);

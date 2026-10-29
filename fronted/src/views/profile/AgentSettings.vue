@@ -172,9 +172,9 @@
             label="Temperature"
             :min="0"
             :max="2"
-            :step="0.1"
-            :decimals="1"
-            hint="越高越发散，越低越稳定"
+            :step="0.05"
+            :decimals="2"
+            hint="越高越发散，越低越稳定（0.00 – 2.00）"
           />
           <NumberSlider
             :model-value="form.maxToken ?? 2048"

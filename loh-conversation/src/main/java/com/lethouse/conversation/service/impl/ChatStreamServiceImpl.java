@@ -8,9 +8,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lethouse.common.context.TenantContext;
 import com.lethouse.common.exception.BusinessException;
 import com.lethouse.conversation.dto.ChatStreamRequest;
+import com.lethouse.conversation.entity.AgentKbRel;
 import com.lethouse.conversation.entity.AgentRef;
 import com.lethouse.conversation.entity.Conversation;
 import com.lethouse.conversation.entity.Message;
+import com.lethouse.conversation.mapper.AgentKbRelMapper;
 import com.lethouse.conversation.mapper.AgentRefMapper;
 import com.lethouse.conversation.mapper.ConversationMapper;
 import com.lethouse.conversation.mapper.MessageMapper;
@@ -51,6 +53,7 @@ public class ChatStreamServiceImpl implements ChatStreamService {
     private final ObjectMapper objectMapper;
     private final MessageMapper messageMapper;
     private final AgentRefMapper agentRefMapper;
+    private final AgentKbRelMapper agentKbRelMapper;
 
     @Value("${loh.agent-runtime.base-url}")
     private String baseUrl;
@@ -83,10 +86,13 @@ public class ChatStreamServiceImpl implements ChatStreamService {
             throw new BusinessException(400,"Agent不存在或已停用");
         }
 
+        List<Long> kbIds = agentKbRelMapper.selectList(new LambdaQueryWrapper<AgentKbRel>()
+                .eq(AgentKbRel::getAgentId, agent.getId())).stream().map(AgentKbRel::getKbId).toList();
+
         //先调上游，拿到成功响应
         HttpResponse<InputStream> upstream;
         try {
-            upstream=agentRuntimeClient.send(buildRequest(conversation,request,agent,recent),HttpResponse.BodyHandlers.ofInputStream());
+            upstream=agentRuntimeClient.send(buildRequest(conversation,request,agent,recent,kbIds),HttpResponse.BodyHandlers.ofInputStream());
         }catch (IOException e){
             Thread.currentThread().interrupt();
             throw  new BusinessException(503,"AI服务暂不可用");
@@ -155,7 +161,7 @@ public class ChatStreamServiceImpl implements ChatStreamService {
         }
     }
 
-    private HttpRequest buildRequest(Conversation conversation, ChatStreamRequest request, AgentRef agent,List<Message> recent){
+    private HttpRequest buildRequest(Conversation conversation, ChatStreamRequest request, AgentRef agent,List<Message> recent,List<Long> kbIds){
         Map<String, Object> body = new HashMap<>();
         body.put("conversationId", conversation.getId());
         body.put("agentId", conversation.getAgentId());
@@ -167,6 +173,7 @@ public class ChatStreamServiceImpl implements ChatStreamService {
         body.put("maxToken",agent.getMaxToken());
         body.put("topK",agent.getTopK());
         body.put("ragEnable",agent.getRagEnable());
+        body.put("kbIds",kbIds);
         body.put("history",recent.stream().map(m->Map.of("role",m.getRole(),"content",m.getContent())).toList());
         log.debug("调用AgentRuntime：history={}条, model={}, ragEnable={}",
                 recent.size(), agent.getModelName(), agent.getRagEnable());

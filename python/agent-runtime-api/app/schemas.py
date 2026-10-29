@@ -18,3 +18,4 @@ class ChatRequest(BaseModel):
     maxToken:int|None=None
     topK:int|None=None
     ragEnable:bool|None=None
+    kbIds:list[int]=[]

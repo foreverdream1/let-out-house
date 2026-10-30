@@ -110,6 +110,7 @@ public class ChatStreamServiceImpl implements ChatStreamService {
         Integer tokenIn=null;
         Integer tokenOut=null;
         boolean interrupted=false;
+        String citationsJson=null;
         //上游 body 作为第一个 resource 交给 try-with-resources：
         //200 之后无论哪一步抛异常（插库失败、设头失败、客户端断开），都由编译器保证先关连接再抛
         try(InputStream upstreamBody = upstream.body();
@@ -146,6 +147,7 @@ public class ChatStreamServiceImpl implements ChatStreamService {
                             endContent=node.path("fullContent").asText("");
                             tokenIn=node.path("tokenUsage").path("input").asInt();
                             tokenOut=node.path("tokenUsage").path("output").asInt();
+                            citationsJson=node.hasNonNull("citations")?node.get("citations").toString():null;
                         }
                     }catch (Exception e){
                         log.debug("SSE时间解析跳过：{}",line);
@@ -157,7 +159,7 @@ public class ChatStreamServiceImpl implements ChatStreamService {
             interrupted=true;
             log.debug("SSE流被中断：conversationId={}",conversationId);
         }finally {
-            persistTurn(conversationId,conversation,request.getQuery(),endContent!=null?endContent:collected.toString(),tokenIn,tokenOut,interrupted);
+            persistTurn(conversationId,conversation,request.getQuery(),endContent!=null?endContent:collected.toString(),tokenIn,tokenOut,citationsJson,interrupted);
         }
     }
 
@@ -191,7 +193,7 @@ public class ChatStreamServiceImpl implements ChatStreamService {
         }
     }
 
-    private void persistTurn(Long conversationId,Conversation conversation,String query,String answer,Integer tokenIn,Integer tokenOut,boolean interrupted){
+    private void persistTurn(Long conversationId,Conversation conversation,String query,String answer,Integer tokenIn,Integer tokenOut,String citations,boolean interrupted){
 
         try {
             boolean hasAnswer = StringUtils.hasText(answer);
@@ -205,6 +207,7 @@ public class ChatStreamServiceImpl implements ChatStreamService {
                 message.setTokenOutput(tokenOut);
                 message.setMsgStatus(interrupted ? 0 : 1);
                 message.setTraceId(MDC.get("traceId"));
+                message.setCitations(citations);
                 messageMapper.insert(message);
             }
             conversationMapper.update(null, new LambdaUpdateWrapper<Conversation>()

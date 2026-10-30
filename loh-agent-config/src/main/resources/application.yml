@@ -5,6 +5,11 @@ spring:
   application:
     name: loh-agent-config
 
+  servlet:
+    multipart:
+      max-file-size: 20MB        # 单文件上限
+      max-request-size: 25MB
+
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: "jdbc:mysql://106.14.90.100:3306/let_out_house?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&rewriteBatchedStatements=true"
@@ -54,3 +59,14 @@ management:
 logging:
   level:
     com.lethouse: debug
+
+# 文档入库链路（本轮新增）
+loh:
+  rag:
+    # Python 执行面的 rag-service
+    base-url: http://127.0.0.1:8002
+    # 文件落盘目录（Java 与 rag-service 同机共享；将来上对象存储改这里）
+    storage-dir: ${LOH_STORAGE_DIR:D:/maven-project/let-out-house/data/documents}
+    # 调 ingest 接口的超时（解析+向量化可能几十秒）
+    ingest-timeout-seconds: 300
+

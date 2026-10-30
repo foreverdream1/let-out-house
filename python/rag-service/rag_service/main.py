@@ -6,7 +6,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from rag_service.clients.milvus import close_client,get_client
-from rag_service.routers import search
+from rag_service.routers import search, ingest
+
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
@@ -16,6 +17,7 @@ async def lifespan(app:FastAPI):
 
 app=FastAPI(title="rag-service",version="0.1.0",lifespan=lifespan)
 app.include_router(search.router)
+app.include_router(ingest.router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_handler(request:Request,exc:RequestValidationError):

@@ -20,4 +20,5 @@ public class Message {
     private Integer msgStatus;
     private String traceId;
     private LocalDateTime createdAt;
+    private String citations;
 }

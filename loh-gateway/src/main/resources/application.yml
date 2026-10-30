@@ -35,7 +35,7 @@ spring:
         - id: agent-config
           uri: http://127.0.0.1:8082
           predicates:
-            - Path=/api/agent/**
+            - Path=/api/agent/**,/api/knowledge/**
         - id: conversation
           uri: http://127.0.0.1:8083
           predicates:

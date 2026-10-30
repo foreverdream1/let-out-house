@@ -40,7 +40,10 @@ async def _mock_stream(req:ChatRequest,trace_id:str,rag_note:str,chunks:list[dic
     for ch in reply:
         yield f"data: {json.dumps({'type':'chunk','content':ch,'traceId':trace_id}, ensure_ascii=False)}\n\n"
         await asyncio.sleep(0.02)
-    yield f"data: {json.dumps({'type':'end','fullContent':reply,'tokenUsage':{'input':len(req.query),'output':len(reply)},'traceId':trace_id}, ensure_ascii=False)}\n\n"
+    end_mock={'type':'end','fullContent':reply,
+              'tokenUsage':{'input':len(req.query),'output':len(reply)},
+              'citations':build_citations(chunks),'traceId':trace_id}
+    yield f"data: {json.dumps(end_mock, ensure_ascii=False)}\n\n"
 
 async def _event_stream(req: ChatRequest, trace_id: str, tenant_id: str):
     chunks, rag_note = [], ""
@@ -81,11 +84,25 @@ async def _event_stream(req: ChatRequest, trace_id: str, tenant_id: str):
             "input": (usage or {}).get("prompt_tokens", 0),
             "output": (usage or {}).get("completion_tokens", 0),
         },
+        "citations":build_citations(chunks=chunks),
         "traceId": trace_id,
     }
     yield f"data: {json.dumps(end_payload, ensure_ascii=False)}\n\n"
 
-
+def build_citations(chunks:list[dict])->list[dict]:
+    """把检索片段转成前端可直接渲染的列表"""
+    citations=[]
+    for i,c in enumerate(chunks,1):
+        body=(c.get("content") or "").strip().replace("\n","")
+        citations.append({
+            "index":i,
+            "chunkId":c.get("chunkId"),
+            "documentId":c.get("documentId"),
+            "documentName":c.get("documentName") or "",
+            "score":c.get("score"),
+            "snippet":body[:120]+("..." if len(body)>120 else ""),
+        })
+    return citations
 
 
 

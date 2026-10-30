@@ -1,8 +1,7 @@
-# 前端接口文档（Agent 配置 + 会话）
+# 前端接口文档（登录 / Agent 配置 / 会话 / 流式对话 / 知识库文档）
 
 > 适用版本：Java 控制面 v1（网关 8080）
-> 后端已完成：登录、用户信息、Agent 配置 CRUD、会话 CRUD
-> 未完成：SSE 流式对话（本文档末尾有预告，暂不可用）
+> 后端已完成：登录、用户信息、Agent 配置 CRUD、会话 CRUD、SSE 流式对话（含 RAG 引用来源）、知识库文档上传/列表/删除
 
 ---
 
@@ -346,7 +345,7 @@ try {
 
 **GET `/api/conversation/{conversationId}/history?pageNum=1&pageSize=10`**
 
-响应（**目前 `message` 表还是空的，因为流式对话还没接**）：
+响应：
 
 ```json
 {
@@ -362,18 +361,36 @@ try {
 }
 ```
 
-有数据时的单条消息结构（供前端提前对接）：
+有数据时的单条消息结构：
 
 ```json
 {
-  "messageId": 1,
-  "role": "user",
-  "content": "你好，请介绍一下产品",
-  "tokenInput": null,
-  "tokenOutput": null,
-  "createdAt": "2026-10-25T17:00:00.000"
+  "messageId": 112,
+  "role": "assistant",
+  "content": "押金将在租客租期届满并完成房屋交接后，7个工作日内无息退还至原支付账户。",
+  "tokenInput": 182,
+  "tokenOutput": 28,
+  "createdAt": "2026-10-30T22:25:11.031",
+  "citations": [
+    {
+      "index": 1,
+      "chunkId": 1,
+      "documentId": 1,
+      "documentName": "房屋租赁规则说明.pdf",
+      "score": 0.7742,
+      "snippet": "押金退还：租客在租期届满并完成房屋交接后，押金将在 7 个工作日内无息退还至原支付账户。"
+    }
+  ]
 }
 ```
+
+`citations` 说明（**与 SSE `end` 事件的 `citations` 结构完全一致，前端可复用同一渲染组件**）：
+
+| 取值 | 含义 | 前端处理 |
+|---|---|---|
+| `null` | 用户消息，或该回答没有检索（老数据 / RAG 关闭） | 不渲染引用区 |
+| `[]` | 检索了但没命中 | 可展示"未检索到相关文档" |
+| `[{...}]` | 命中 N 条，按相关度倒序 | 渲染引用列表，`index` 对应正文里的 `[1]` |
 
 `role` 取值：`user`（用户提问）/ `assistant`（模型回答）/ `system`（系统提示）。
 
@@ -469,18 +486,14 @@ const agentId = await request.post('/api/agent', { agentName: 'x', systemPrompt:
 
 ---
 
-## 七、SSE 流式对话（未完成，预告）
-
-**当前状态：接口未实现，调用会返回 404。**
-
-将来会是：
+## 七、SSE 流式对话（已实现）
 
 ```
 POST /api/conversation/{conversationId}/stream
 Authorization: Bearer <token>
 Content-Type: application/json
 
-{ "query": "用户的问题", "stream": true }
+{ "query": "用户的问题" }
 ```
 
 响应是 `text/event-stream`，事件格式：
@@ -490,9 +503,48 @@ data: {"type":"chunk","content":"这","traceId":"xxx"}
 
 data: {"type":"chunk","content":"是","traceId":"xxx"}
 
-data: {"type":"end","fullContent":"这是一段回答","tokenUsage":{"input":10,"output":20}}
+data: {"type":"end","fullContent":"这是一段回答","tokenUsage":{"input":182,"output":28},"citations":[...],"traceId":"xxx"}
 
 ```
+
+### end 事件字段
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `fullContent` | string | 完整回答文本，可直接替换流式过程中的拼接结果 |
+| `tokenUsage.input` | int | 提示词 token 数（含 RAG 上下文） |
+| `tokenUsage.output` | int | 回答 token 数 |
+| `citations` | array | **引用来源**，未命中知识库时为 `[]`（不是 null） |
+| `traceId` | string | 链路追踪 ID |
+
+### citations 数组元素
+
+```json
+{
+  "index": 1,
+  "chunkId": 1,
+  "documentId": 1,
+  "documentName": "房屋租赁规则说明.pdf",
+  "score": 0.7742,
+  "snippet": "押金退还：租客在租期届满并完成房屋交接后，押金将在 7 个工作日内无息退还至原支付账户。"
+}
+```
+
+| 字段 | 说明 |
+|---|---|
+| `index` | 引用序号，与回答正文里的 `[1]` `[2]` 对应 |
+| `score` | 余弦相似度（0~1），可用于展示"相关度"或用颜色区分 |
+| `snippet` | 片段正文（已截断到 120 字），点开可展开原文 |
+
+### error 事件
+
+模型服务异常时：
+
+```
+data: {"type":"error","content":"模型服务异常，请稍后重试","traceId":"xxx"}
+```
+
+前端收到 error 后应停止 loading 并提示重试，**不要**把 `content` 当回答内容渲染。
 
 前端不能用 `EventSource`（它不支持 POST 和自定义 Header），要用 `fetch` + `ReadableStream`：
 
@@ -517,3 +569,106 @@ while (true) {
 ```
 
 这块等后端做完我会补一份完整的对接文档。
+
+---
+
+## 八、知识库文档（已实现）
+
+> 服务：`loh-agent-config`（8082），网关路径前缀 `/api/knowledge`。
+> 所有接口都需要 `Authorization: Bearer <token>`；`X-Tenant-Id` 由网关从 token 解出并覆盖，前端不必传。
+> 返回体统一 `{ code, msg, data, traceId }`，**`code = 0` 才是成功**（HTTP 状态码恒为 200）。
+
+### 8.1 上传文档
+
+**POST `/api/knowledge/{kbId}/documents`**
+
+`Content-Type: multipart/form-data`，字段名固定为 `file`。
+
+```js
+const fd = new FormData()
+fd.append('file', file)
+const resp = await axios.post(`/api/knowledge/${kbId}/documents`, fd, {
+  timeout: 300000,   // 必须放大：解析 + 切片 + 向量化是同步的，默认 15s 必超时
+  // 不要手动设置 Content-Type，浏览器会自动带 boundary
+})
+```
+
+限制：扩展名只允许 `pdf / docx / md / txt`；单文件 ≤ 20MB；空文件拒绝。
+
+响应：
+
+```json
+{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "id": 5,
+    "docName": "车位租赁与物业费管理办法.md",
+    "fileType": "md",
+    "fileSize": 1887,
+    "chunkCount": 2,
+    "parseStatus": 2,
+    "failReason": null,
+    "createdAt": "2026-10-31T02:27:09.675"
+  },
+  "traceId": "263db38938f04d5..."
+}
+```
+
+**关键：解析失败时 `code` 仍然是 0**，靠 `parseStatus` 判断：
+
+| `parseStatus` | 含义 | `chunkCount` | `failReason` | 前端处理 |
+|---|---|---|---|---|
+| 0 | 待解析 | 0 | null | 显示"排队中"（当前同步实现一般不会停留在这个状态） |
+| 1 | 解析中 | 0 | null | 显示 loading |
+| 2 | 已完成 | > 0 | null | 提示"已入库 N 个片段" |
+| 3 | 失败 | 0 | 失败原因（≤500字） | 提示 `failReason`，不要当接口错误 |
+
+```js
+if (data.parseStatus === 2) toast(`已入库 ${data.chunkCount} 个片段`)
+else if (data.parseStatus === 3) toast(`解析失败：${data.failReason}`, 'error')
+```
+
+同名文件重复上传视为**覆盖**：`id` 不变，旧分片和向量会被清空后重建（不会出现重复文档）。
+
+### 8.2 文档列表
+
+**GET `/api/knowledge/{kbId}/documents?pageNum=1&pageSize=10`**
+
+`pageSize` 上限 100（超过按 100 处理），按 `id` 倒序（最新的在前）。
+
+```json
+{
+  "code": 0, "msg": "success",
+  "data": {
+    "list": [
+      { "id": 5, "docName": "车位租赁与物业费管理办法.md", "fileType": "md",
+        "fileSize": 1887, "chunkCount": 2, "parseStatus": 2,
+        "failReason": null, "createdAt": "2026-10-31T02:27:09.675" },
+      { "id": 1, "docName": "房屋租赁规则说明.pdf", "fileType": "pdf",
+        "fileSize": 10240, "chunkCount": 4, "parseStatus": 2,
+        "failReason": null, "createdAt": "2026-10-28T23:01:03.000" }
+    ],
+    "total": 2, "pageNum": 1, "pageSize": 10
+  },
+  "traceId": "..."
+}
+```
+
+`fileSize` 是字节数，前端自己格式化成 KB/MB。知识库不存在时返回 `{"code":404,"msg":"知识库不存在"}`。
+
+### 8.3 删除文档
+
+**DELETE `/api/knowledge/{kbId}/documents/{docId}`**
+
+成功返回 `{"code":0,"msg":"success","data":null}`。
+
+删除会同时清掉：MySQL 里该文档的所有分片、Milvus 里的对应向量、并把知识库 `doc_count` 减 1。删除后该文档内容**立即不再被检索命中**。
+
+文档不属于该知识库、或已被删除 → `{"code":404,"msg":"文档不存在"}`。
+
+### 8.4 前端页面建议
+
+- 上传区：点选 + 拖拽，提交时显示上传进度（`onUploadProgress`），完成后按 `parseStatus` 提示；
+- 列表区：文件名 / 大小 / 片段数 / 状态徽标（待解析灰、解析中蓝、完成绿、失败红）+ 删除按钮；
+- 失败行：`failReason` 用 tooltip 或行内小字展示，提供"重新上传"（同名覆盖即可）。

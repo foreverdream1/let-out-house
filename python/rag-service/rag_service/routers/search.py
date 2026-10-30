@@ -65,10 +65,12 @@ async def search(
             if not row:
                 continue
             chunks.append({
-                "chunkId":row["id"],
-                "documentId":row["document_id"],
-                "content":row["content"],
-                "score":round(m["score"],4),
+                "chunkId": row["id"],
+                "documentId": row["document_id"],
+                "documentName": row.get("doc_name") or "",
+                "chunkIndex": row["chunk_index"],
+                "content": row["content"],
+                "score": round(m["score"], 4),
             })
 
         return _ok({"chunks":chunks,"elapsedMs":int((time.perf_counter()-t0)*1000)},trace_id)

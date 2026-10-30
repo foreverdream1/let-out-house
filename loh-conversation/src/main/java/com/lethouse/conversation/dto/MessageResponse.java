@@ -1,5 +1,6 @@
 package com.lethouse.conversation.dto;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -12,4 +13,5 @@ public class MessageResponse {
     private Integer tokenInput;
     private Integer tokenOutput;
     private LocalDateTime createdAt;
+    private JsonNode citations;
 }

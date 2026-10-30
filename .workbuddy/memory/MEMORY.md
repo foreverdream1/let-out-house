@@ -49,3 +49,8 @@ JDK21 · Spring Boot 3.2.12 · Spring Cloud 2023.0.3 · Spring Cloud Alibaba 202
 - Python 内部流式：`POST /api/agent/runtime/chat/stream`
 - MQ 三队列：rag-doc-parse / agent-long-task / task-callback，字段 docId+filePath+requestId+traceId
 - JDK 21（不入文档里的 17）
+
+## 前端边界（2026-10-31 用户明确要求）
+- 用户有专门的前端伙伴，**我完全不修改 fronted/ 下任何代码**
+- 我的职责：后端接口 + 契约文档（contracts/frontend-api.md）+ 验证
+- 需要前端配合时，只输出接口契约与调用示例，不动前端文件

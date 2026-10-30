@@ -2,6 +2,8 @@ package com.lethouse.conversation.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lethouse.common.context.TenantContext;
 import com.lethouse.common.exception.BusinessException;
 import com.lethouse.common.result.PageResult;
@@ -16,9 +18,11 @@ import com.lethouse.conversation.mapper.ConversationMapper;
 import com.lethouse.conversation.mapper.MessageMapper;
 import com.lethouse.conversation.service.ConversationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ConversationServiceImpl implements ConversationService {
@@ -27,6 +31,7 @@ public class ConversationServiceImpl implements ConversationService {
     private final AgentRefMapper agentRefMapper;
     private final ConversationMapper conversationMapper;
     private final MessageMapper messageMapper;
+    private final ObjectMapper objectMapper;
 
     @Override
     public Long create(ConversationCreateRequest request) {
@@ -102,6 +107,13 @@ public class ConversationServiceImpl implements ConversationService {
         r.setMessageId(e.getId());
         r.setTokenInput(e.getTokenInput());
         r.setTokenOutput(e.getTokenOutput());
+        if(StringUtils.hasText(e.getCitations())){
+            try {
+                r.setCitations(objectMapper.readTree(e.getCitations()));
+            }catch (JsonProcessingException ex){
+                log.warn("citations解析失败：messageId={}",e.getId());
+            }
+        }
         return r;
     }
 }

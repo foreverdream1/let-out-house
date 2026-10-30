@@ -23,6 +23,15 @@ class Settings(BaseSettings):
     mysql_password: str = ""
     mysql_db: str = "let_out_house"
 
+    # ---- MySQL 写账号（仅入库链路写 document_chunk 用）----
+    mysql_write_user: str = "loh_app"
+    mysql_write_password: str = ""
+
+    # ---- 入库（切片）参数 ----
+    chunk_size: int = 500          # 单块目标字符数
+    chunk_overlap: int = 50        # 相邻块重叠字符数，防答案被切断
+    embed_batch: int = 16          # 每次请求 embedding 的条数，控限流
+
     # ---- 检索默认参数 ----
     default_top_k: int = 5
     max_top_k: int = 20

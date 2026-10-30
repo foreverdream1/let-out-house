@@ -11,3 +11,11 @@ class ChunkHit(BaseModel):
     documentId:int
     content:str
     score:float
+
+class IngestRequest(BaseModel):
+    docId:int
+    kbId:int
+    tenantId:int
+    filePath:str
+    fileType:str
+    docName:str=""

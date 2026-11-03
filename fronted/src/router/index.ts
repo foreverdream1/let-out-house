@@ -7,6 +7,8 @@ import ProfileView from "../views/ProfileView.vue";
 import ThemeView from "../views/profile/ThemeView.vue";
 import AgentSettings from "../views/profile/AgentSettings.vue";
 import AgentTestView from "../views/profile/AgentTestView.vue";
+import KnowledgeView from "../views/profile/KnowledgeView.vue";
+import BillingView from "../views/profile/BillingView.vue";
 
 const routes = [
   { path: "/login", name: "Login", component: Login, meta: { public: true } },
@@ -45,6 +47,18 @@ const routes = [
         name: "Theme",
         component: ThemeView,
         meta: { title: "主题与配色", rail: "profile" },
+      },
+      {
+        path: "profile/knowledge",
+        name: "Knowledge",
+        component: KnowledgeView,
+        meta: { title: "知识库文档", rail: "profile" },
+      },
+      {
+        path: "profile/billing",
+        name: "Billing",
+        component: BillingView,
+        meta: { title: "用量与账单", rail: "profile" },
       },
     ],
   },

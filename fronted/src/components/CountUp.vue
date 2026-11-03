@@ -14,6 +14,8 @@ interface Props {
   className?: string;
   startWhen?: boolean;
   separator?: string;
+  /** 小数位数，默认 0（整数动画） */
+  decimals?: number;
   onStart?: () => void;
   onEnd?: () => void;
 }
@@ -25,7 +27,8 @@ const props = withDefaults(defineProps<Props>(), {
   duration: 2,
   className: '',
   startWhen: true,
-  separator: ''
+  separator: '',
+  decimals: 0
 });
 
 const elementRef = useTemplateRef<HTMLSpanElement>('elementRef');
@@ -45,11 +48,13 @@ let startTime = 0;
 const formatNumber = (value: number) => {
   const options = {
     useGrouping: !!props.separator,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
+    minimumFractionDigits: props.decimals,
+    maximumFractionDigits: props.decimals
   };
 
-  const formattedNumber = Intl.NumberFormat('en-US', options).format(Number(value.toFixed(0)));
+  const formattedNumber = Intl.NumberFormat('en-US', options).format(
+    Number(value.toFixed(props.decimals))
+  );
 
   return props.separator ? formattedNumber.replace(/,/g, props.separator) : formattedNumber;
 };
@@ -142,6 +147,12 @@ watch(
     currentValue.value = props.direction === 'down' ? props.to : props.from;
     updateDisplay();
     hasStarted.value = false;
+    // 值变化后必须手动重启动画：
+    // 启动只挂在 isInView 的 watch 上，元素一直在视口内就不会再触发，
+    // 否则数字会停在动画中途（切换账单时间范围时曾出现显示 61 而非 64）。
+    if (props.startWhen && isInView.value) {
+      startAnimation();
+    }
   },
   { immediate: true }
 );

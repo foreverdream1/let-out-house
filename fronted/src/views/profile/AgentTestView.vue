@@ -153,26 +153,38 @@
             >
               <mdui-icon :name="m.role === 'user' ? 'person' : 'smart_toy--outlined'" class="text-[18px]"></mdui-icon>
             </span>
+            <!-- 气泡与引用纵向排列，避免引用被气泡的 max-w 挤压 -->
             <div
-              class="selectable max-w-[80%] whitespace-pre-wrap break-words px-4 py-2.5 text-sm leading-relaxed"
-              :class="
-                m.role === 'user'
-                  ? 'rounded-3xl rounded-br-md bg-primary-container text-on-primary-container'
-                  : 'rounded-3xl rounded-bl-md bg-surface-container-highest text-on-surface'
-              "
+              class="flex min-w-0 max-w-[80%] flex-col"
+              :class="m.role === 'user' ? 'items-end' : 'items-start'"
             >
-              <span>{{ m.text }}</span>
-              <!-- 流式光标 -->
-              <span
-                v-if="m.streaming"
-                class="ml-0.5 inline-block h-[0.9em] w-[2px] translate-y-[2px] animate-pulse bg-primary"
+              <div
+                class="selectable w-fit whitespace-pre-wrap break-words px-4 py-2.5 text-sm leading-relaxed"
+                :class="
+                  m.role === 'user'
+                    ? 'rounded-3xl rounded-br-md bg-primary-container text-on-primary-container'
+                    : 'rounded-3xl rounded-bl-md bg-surface-container-highest text-on-surface'
+                "
+              >
+                <span>{{ m.text }}</span>
+                <!-- 流式光标 -->
+                <span
+                  v-if="m.streaming"
+                  class="ml-0.5 inline-block h-[0.9em] w-[2px] translate-y-[2px] animate-pulse bg-primary"
+                />
+                <!-- 没收到任何增量时先显示占位 -->
+                <span v-if="m.streaming && !m.text" class="inline-flex gap-1 py-1">
+                  <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-on-surface-variant" />
+                  <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-on-surface-variant [animation-delay:150ms]" />
+                  <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-on-surface-variant [animation-delay:300ms]" />
+                </span>
+              </div>
+              <!-- 只有 assistant 消息才可能有引用；citations 为 null 时组件自身不渲染 -->
+              <CitationList
+                v-if="m.role === 'assistant' && !m.streaming"
+                :citations="m.citations ?? null"
+                class="max-w-full"
               />
-              <!-- 没收到任何增量时先显示占位 -->
-              <span v-if="m.streaming && !m.text" class="inline-flex gap-1 py-1">
-                <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-on-surface-variant" />
-                <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-on-surface-variant [animation-delay:150ms]" />
-                <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-on-surface-variant [animation-delay:300ms]" />
-              </span>
             </div>
           </div>
         </TransitionGroup>
@@ -277,9 +289,15 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import ThoughtLine from "../../components/ThoughtLine.vue";
 import ShinyText from "../../components/ShinyText.vue";
+import CitationList from "../../components/CitationList.vue";
 import { useTheme } from "../../composables/useTheme";
 import { agentApi, type AgentResponse } from "../../api/agent";
-import { conversationApi, type ConversationResponse, type MessageResponse } from "../../api/conversation";
+import {
+  conversationApi,
+  type Citation,
+  type ConversationResponse,
+  type MessageResponse,
+} from "../../api/conversation";
 import { streamChat, ChatStreamError } from "../../api/chat";
 import { toast } from "../../composables/useToast";
 
@@ -288,6 +306,13 @@ interface Msg {
   role: "user" | "assistant";
   text: string;
   streaming?: boolean;
+  /**
+   * 引用来源，三种语义：
+   * undefined/null = 还没收到 end 或该消息不涉及检索 → 不渲染
+   * []             = 检索了但没命中
+   * [...]          = 命中
+   */
+  citations?: Citation[] | null;
 }
 
 const router = useRouter();
@@ -438,6 +463,7 @@ const toMsg = (m: MessageResponse): Msg => ({
   id: m.messageId,
   role: m.role === "user" ? "user" : "assistant",
   text: m.content,
+  citations: m.citations ?? null,
 });
 
 const openConversation = async (c: ConversationResponse) => {
@@ -622,6 +648,8 @@ const send = async () => {
           if (stickToBottom) scrollToBottom(false);
         } else if (ev.type === "end") {
           if (ev.fullContent && !target.text) target.text = ev.fullContent;
+          // [] 是有意义的（检索未命中），只有 undefined 才归一成 null
+          target.citations = ev.citations ?? null;
         } else if (ev.type === "error") {
           lastError.value = { message: ev.content, traceId: ev.traceId };
         }

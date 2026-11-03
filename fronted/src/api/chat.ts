@@ -16,6 +16,8 @@
  * 2. 多字节 UTF-8 字符可能被拆到两个 chunk 里，必须用 { stream: true } 解码。
  */
 
+import type { Citation } from "./conversation";
+
 export interface ChatChunkEvent {
   type: "chunk";
   content: string;
@@ -26,6 +28,8 @@ export interface ChatEndEvent {
   type: "end";
   fullContent?: string;
   tokenUsage?: { input: number; output: number };
+  /** 引用来源；未命中知识库时为 []（不是 null） */
+  citations?: Citation[];
   traceId?: string;
 }
 

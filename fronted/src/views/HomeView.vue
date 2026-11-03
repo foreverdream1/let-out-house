@@ -266,6 +266,20 @@ const quick = [
     tone: "bg-tertiary-container text-on-tertiary-container",
   },
   {
+    title: "知识库文档",
+    desc: "上传与管理知识库文件",
+    icon: "folder--outlined",
+    to: "/profile/knowledge",
+    tone: "bg-surface-container-highest text-on-surface",
+  },
+  {
+    title: "用量与账单",
+    desc: "Token 消耗与费用明细",
+    icon: "receipt_long--outlined",
+    to: "/profile/billing",
+    tone: "bg-primary-container text-on-primary-container",
+  },
+  {
     title: "主题与配色",
     desc: "Material You 动态取色",
     icon: "palette--outlined",

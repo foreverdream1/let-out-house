@@ -41,6 +41,11 @@ export default defineConfig(() => ({
       "/api": {
         target: "http://localhost:8080", // 你的真实后端地址
         changeOrigin: true, // 允许跨域
+        // 知识库文档上传是同步解析 + 切片 + 向量化，20MB 的 PDF 可能跑好几分钟。
+        // vite 代理默认 120s 超时会先断开，前端看到"上传失败"但后端其实还在处理，
+        // 所以这里放大到 5 分钟，与前端请求的 timeout 对齐。
+        timeout: 300000,
+        proxyTimeout: 300000,
         // 如果后端接口本身就带有 /api 前缀，则不需要 rewrite
         // 如果后端真实路径没有 /api，可以取消注释下面这行：
         // rewrite: (path) => path.replace(/^\/api/, ""),

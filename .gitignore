@@ -44,3 +44,9 @@ backup/
 .DS_Store
 Thumbs.db
 python/agent-runtime-api/run.sh
+
+# ---------- 本地 AI 助手工作区（内部笔记，不入库）----------
+.workbuddy/
+
+# ---------- 前端用 pnpm，npm 的 lock 文件不入库 ----------
+fronted/package-lock.json

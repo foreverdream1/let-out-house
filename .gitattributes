@@ -1,0 +1,2 @@
+# Shell 脚本必须用 LF，否则在 Linux/CI 上执行会报 $'\r': command not found
+*.sh text eol=lf
